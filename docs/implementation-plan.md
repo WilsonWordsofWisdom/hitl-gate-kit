@@ -1,8 +1,6 @@
 # HITL Gate Kit: Implementation plan
 
-**Status:** draft for owner review, 2026-11-27. Derived from the [HITL Gate Kit plan](https://github.com/WilsonWordsofWisdom/systemsideHITL/blob/research/hitl-gate-kit/docs/research/hitl-gate-kit-plan.md) section 12. Requirements: [PRD.md](PRD.md). Architecture: [architecture.md](architecture.md).
-
-Effort is for one developer, as an estimate. **Kit** means this repository; **Prototype** means [systemsideHITL](https://github.com/WilsonWordsofWisdom/systemsideHITL). Each step ends with a check that proves it is done.
+**Prototype** means [systemsideHITL](https://github.com/WilsonWordsofWisdom/systemsideHITL). Each step ends with a check that proves it is done.
 
 **Rules throughout:**
 - Test-first for anything that enforces a requirement.

@@ -1,8 +1,6 @@
 # HITL Gate Kit (HGK): Product Requirements
 
-**Status:** draft for owner review, 2026-11-27.
 **Source:** [HITL Gate Kit plan](https://github.com/WilsonWordsofWisdom/systemsideHITL/blob/research/hitl-gate-kit/docs/research/hitl-gate-kit-plan.md) in the prototype repository ([systemsideHITL](https://github.com/WilsonWordsofWisdom/systemsideHITL)). Where this PRD and the plan differ, this PRD wins and the difference is logged in [decisions.md](decisions.md).
-**Related:** [architecture.md](architecture.md) · [design.md](design.md) · [implementation-plan.md](implementation-plan.md) · [decisions.md](decisions.md)
 
 ## 1. Problem
 

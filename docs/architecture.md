@@ -1,7 +1,5 @@
 # HITL Gate Kit: Architecture
 
-**Status:** draft for owner review, 2026-11-27. Requirements: [PRD.md](PRD.md). Decisions: [decisions.md](decisions.md).
-
 This document describes two things:
 1. **The architecture the kit specifies:** how a conforming gate fits into an organisation's own system (sections 2-5).
 2. **The architecture of the kit itself:** specification, conformance suite, guide and SDK, and how they relate (sections 6-9).

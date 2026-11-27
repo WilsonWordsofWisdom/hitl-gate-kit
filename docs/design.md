@@ -1,7 +1,5 @@
 # HITL Gate Kit: Design
 
-**Status:** draft for owner review, 2026-11-27. Requirements: [PRD.md](PRD.md). Architecture: [architecture.md](architecture.md).
-
 The kit is mostly a specification, a test suite and a guide, so it has few screens. This document covers the surfaces people do see:
 
 1. the **conformance report** (HTML) and the suite's terminal output;
