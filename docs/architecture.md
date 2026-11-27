@@ -94,20 +94,23 @@ sequenceDiagram
   G-->>C: 403 requires_human_approval<br/>WWW-Authenticate (RFC 9470), ticket_id, continue_url
   C-->>P: relays message_for_user and link
   P->>AP: opens continue_url (configured origin only)
-  AP->>T: read summary from the ticket record
-  AP->>P: show summary and confirmation code
-  P->>AP: approve with user verification<br/>(challenge bound to ticket and payload hash)
+  AP->>T: read summary and allowed profiles from the ticket record
+  AP->>P: show origin, summary and confirmation code
+  P->>AP: approve with an allowed profile and user verification<br/>(challenge bound to ticket and payload hash)
   AP->>T: pending → approved
   C->>G: retry with HITL-Ticket: <id>
-  G->>T: same requester? same payload and state? not expired?<br/>atomic approved → consumed
-  G->>S: run the action once
-  S-->>C: 200
+  G->>G: canonicalise again (duplicate keys refused), recompute hashes
+  Note over G,S: one atomic unit (CORE-17)
+  G->>T: same requester? same payload and state? not expired?<br/>approved → consumed
+  G->>S: run the action with the approved values
+  S-->>G: result
+  G-->>C: 200
   Note over G,T: every step writes an audit record
 ```
 
 ## 4. Requirements the specification defines
 
-These IDs are proposals; each traces back to a prototype control. They become normative text in K2.
+These IDs are proposals; each traces back to a prototype control or to a finding of the 2026-11-27 security review (SA-1 to SA-7, see [decisions.md](decisions.md)). They become normative text in K2.
 
 ### 4.1 HGK-Core (normative)
 
@@ -117,7 +120,7 @@ These IDs are proposals; each traces back to a prototype control. They become no
 | CORE-2 | Decision (`allow`, `gate`, `deny`) made on the server from a declared policy; unlisted, non-read-only actions are denied | C2, C4 |
 | CORE-3 | Fail closed: an error gives `gate` (or `deny` for critical actions), never `allow` | C3 |
 | CORE-4 | Resource ownership checked on every access | C5 |
-| CORE-5 | Ticket bound to user, action, resource, request hash (minus named volatile fields) and stored-state hash, using a deterministic canonical form (RFC 8785 recommended). Input that can't be canonicalised is refused | T1 |
+| CORE-5 | Ticket bound to user, action, resource, request hash and stored-state hash. The request hash covers the method, the route template plus resource ID, the query and the canonical body, computed over the parsed values the service will receive, in a deterministic canonical form (RFC 8785 recommended). Refused, never hashed: input that can't be canonicalised, and objects with duplicate member names (I-JSON, RFC 7493). Volatile fields excluded from the hash must not affect the action's effect; the service runs on the approved values | T1, SA-3 |
 | CORE-6 | Ticket IDs carry at least 128 bits from a CSPRNG | T4 |
 | CORE-7 | Lifetime at most 10 minutes, checked on read and on use | T3 |
 | CORE-8 | States `pending → approved → consumed`; `pending → rejected / expired`; nothing else | T5 |
@@ -129,6 +132,7 @@ These IDs are proposals; each traces back to a prototype control. They become no
 | CORE-14 | Messages to agents are declarative and addressed to the person; no model-directed instructions, no secrets | P1-P3 |
 | CORE-15 | Ticket creation and approval attempts rate limited per user and per network address | T9 |
 | CORE-16 | Observe mode needs a second switch and an end time at most 24 h ahead; announced while on; enforcement resumes by itself | C6, H6 |
+| CORE-17 | Checking the requester, payload and stored state, consuming the ticket and running the action form one atomic unit: one transaction, or a compare-and-set on the stored state's version when the action runs. The action never runs without a committed consumption. If the transaction rolls back, the ticket is not consumed; if the action fails after a committed consumption, the ticket stays consumed and a new approval is needed | SA-1 |
 
 ### 4.2 The gated response (CORE-12)
 
@@ -148,21 +152,25 @@ These IDs are proposals; each traces back to a prototype control. They become no
 | APR-1 | Approval cryptographically bound to this ticket and this payload hash | W2 |
 | APR-2 | Approver is the ticket's account holder, with user verification | W1, W3 |
 | APR-3 | An approval assertion can be used once | W2 |
-| APR-4 | Approval page shows a summary from the ticket record, on the organisation's origin | T8, W4 |
-| APR-5 | A password alone can't enrol an approver credential; the first needs out-of-band proof, later ones need an existing credential | W12, H1 |
-| APR-6 (should) | With agent evidence or suspected handover, approve on a different device or session | H2, H3 |
+| APR-4 | Approval page shows a summary from the ticket record, on the organisation's origin, and shows that origin prominently | T8, W4, SA-6 |
+| APR-5 | A password alone can't enrol an approver credential. The first needs out-of-band proof through a channel the requesting agent can't read (for example an admin-issued code or identity proofing; never an email or SMS link alone); later ones need an existing credential | W12, H1, SA-4 |
+| APR-6 (should) | With agent evidence or suspected handover, approve on a different device or session. The approving device shows the ticket summary (APR-4) and uses a credential bound to the organisation's origin (WebAuthn on that device, or the platform's WebAuthn hybrid transport). Where the approval channel is not origin-bound (OIDC with a phishable method, CIBA push), apply the cross-device mitigations of the IETF cross-device security BCP: a confirmation code the person must match, approval started by the person, and a proximity check where possible | H2, H3, SA-6 |
 | APR-7 (should) | Confirmation code on both screens; limit pending approvals; cool down after a decline | H4 |
 | APR-8 (may) | Attestation policy where the population allows it | H5 |
+| APR-9 | Credential management and recovery are gated: adding or removing an approver credential and changing recovery details are `critical` actions in every policy (POL-1). Recovery that leaves no approver credential falls back to the first-credential rule in APR-5. The account holder is notified on every registered channel when a credential is added or removed. A new credential should not approve tickets until a cooling-off period, set in the policy's gate settings, has passed | SA-4 |
+| APR-10 | The approval page and its endpoints are hardened: only the ticket's account holder, signed in, can view a ticket; framing blocked (`frame-ancestors 'none'`); CSRF protection on approve and decline; approval-only cookies are `__Host-` and `SameSite=Strict`; a Content Security Policy; `Referrer-Policy: no-referrer` (the ticket ID is in the URL); `Cache-Control: no-store`. User-controlled values in the summary are escaped, and bidirectional-override and confusable characters are neutralised or flagged | T8, SA-7 |
+| APR-11 | No approval-method downgrade: the ticket records, when created, the approver profiles the policy allows for its action and the policy version; an approval through any other profile is refused | SA-5 |
 
 | Profile | Binding | Status |
 |---|---|---|
 | **WebAuthn** | Challenge `SHA-256(ticket_id ‖ payload_hash ‖ nonce)`, `userVerification: required`, origin and RP ID checked, credential belongs to the ticket's user | Complete (proven in the prototype) |
-| **OIDC step-up** | `acr_values`, `max_age=0`, `nonce = base64url(SHA-256(ticket_id ‖ payload_hash ‖ server nonce))`; verify signature, `iss`, `aud`, `nonce`, `acr`, `auth_time` | Draft until validated with two identity providers |
+| **OIDC step-up** | `acr_values`, `max_age=0`, `nonce = base64url(SHA-256(ticket_id ‖ payload_hash ‖ server nonce))`; verify signature, `iss`, `aud`, `nonce`, `acr`, `auth_time`. `acr` or `amr` (RFC 8176) must show a phishing-resistant method, and `auth_time` must be later than the ticket's `created_at`, so an existing single sign-on session can't approve | Draft until validated with two identity providers |
 | **CIBA with RAR** | `binding_message` with the confirmation code; `authorization_details` naming action and resource | Draft (v0.3) |
 
 ### 4.4 HGK-Policy, HGK-Actor, HGK-Audit, HGK-Rollout
 
-- **Policy (normative):** YAML or JSON with a JSON Schema: `read_only` actions; per-action decisions for each actor class (`human`, `declared_agent`, `suspected_agent`, `unknown`); `critical` actions; gate settings. Loaded at start-up, read-only; invalid policy stops start-up. AuthZEN mapping: subject = user plus actor class; action; resource = type plus ID; context = route and evidence.
+- **Policy (normative):** YAML or JSON with a JSON Schema: a `version`; `read_only` actions; per-action decisions for each actor class (`human`, `declared_agent`, `suspected_agent`, `unknown`); `critical` actions; gate settings (lifetime, allowed approver profiles per action, credential cooling-off period). Loaded at start-up, read-only; invalid policy stops start-up. AuthZEN mapping: subject = user plus actor class; action; resource = type plus ID; context = route and evidence.
+  - **POL-1:** the start-up check refuses a policy in which, for any action that isn't read-only, the decision for `human` or `declared_agent` is looser than the decision for `unknown` (strictness: `deny` > `gate` > `allow`). Actor classes come from evidence an agent may forge, so a class can make a decision stricter but never looser. Approver credential management and recovery actions (APR-9) must be listed as `critical`, and no actor class may `allow` them. (SA-2, SA-4)
 - **Actor (mostly informative):** normative parts are the classes, the evidence precedence (protocol identity > self-declaration > behaviour score > default), **escalate-only** within a session, and detection **never loosens** a decision. Signals are informative, with an explicit warning that they may score 0 for modern agents.
 - **Audit (normative minimum):** a record for every decision, ticket change, approval, decline, redemption, denial and observe-mode decision. Never secrets, tokens, enrolment codes or assertions.
 - **Rollout (informative):** observe (time-boxed) → tune → freeze → enforce. Detection rates only reported after the freeze.
@@ -185,9 +193,11 @@ erDiagram
     string requester "session id, or OAuth client + user"
     string action
     string resource "type + id"
-    string payload_hash "canonical form, volatile fields excluded"
+    string payload_hash "method, route, query, canonical body"
     string state_hash "stored-state snapshot"
     string state "pending | approved | rejected | expired | consumed"
+    list allowed_profiles "fixed at creation (APR-11)"
+    string policy_version
     time created_at
     time expires_at "≤ 10 min"
   }
@@ -199,7 +209,9 @@ erDiagram
   APPROVER_CREDENTIAL {
     string user_id
     string profile
-    string enrolled_via "out-of-band code | existing credential"
+    string enrolled_via "out-of-band proof | existing credential"
+    time created_at
+    time usable_from "after cooling-off (APR-9)"
   }
   AUDIT_RECORD {
     time ts
@@ -216,6 +228,7 @@ erDiagram
     string ip_hash
   }
   POLICY {
+    string version
     list read_only
     map decisions "action x actor class"
     list critical
@@ -228,7 +241,7 @@ erDiagram
 ```mermaid
 stateDiagram-v2
   [*] --> pending: gate decision
-  pending --> approved: approver succeeds (APR-1..5)
+  pending --> approved: approver succeeds (APR-1..5, APR-9..11)
   pending --> rejected: person declines
   pending --> expired: lifetime passes
   approved --> consumed: requester redeems, atomic (CORE-9)
@@ -245,9 +258,13 @@ stateDiagram-v2
 | Failure | Behaviour |
 |---|---|
 | Classifier or policy error | Fail closed: `gate`, or `deny` for critical actions (CORE-3) |
-| Invalid policy at start-up | Start-up stops |
-| Payload can't be canonicalised (`NaN`, lone surrogates, non-JSON values) | Request refused, never hashed (CORE-5) |
+| Invalid policy at start-up, including a POL-1 violation | Start-up stops |
+| Payload can't be canonicalised (`NaN`, lone surrogates, non-JSON values, duplicate member names) | Request refused, never hashed (CORE-5) |
 | Concurrent redemption | Atomic conditional update; one winner, others get `consumed` (CORE-9) |
+| Stored state changes between check and execution | The compare-and-set or transaction fails; the action doesn't run (CORE-17) |
+| Action fails after the ticket is consumed | Ticket stays consumed; a new approval is needed (CORE-17) |
+| Approval through a profile the ticket doesn't allow | Refused; ticket stays `pending` (APR-11) |
+| New approver credential used during its cooling-off period | Approval refused; account holder already notified (APR-9) |
 | Requester loses its live status stream | Polling is the contract; streaming is a convenience |
 | Approval storm | Rate limits (CORE-15) and pending-approval cap (APR-7) |
 | Observe mode left on | Ends by itself at its end time, at most 24 h (CORE-16) |
@@ -302,7 +319,7 @@ flowchart LR
 - **Black-box:** the suite only sees HTTP and the browser. The target exposes test-mode hooks: an enrolment code for a test passkey, a short ticket lifetime, an audit export.
 - **Safety:** refuses a base URL marked as production unless explicitly overridden.
 - **Test catalogue:** about 30 tests in v0.1, grouped as gate coverage, tickets, responses, approver, limits and modes, audit (Level 2) and MCP (Level 3). Each test names the requirement IDs it covers.
-- **Self-test:** `examples/broken-service` has one switch per fault (allow reuse, skip the payload check, accept any account's approval, build URLs from the request, and so on). CI runs the suite against each switch and fails if any fault goes undetected.
+- **Self-test:** `examples/broken-service` has one switch per fault (allow reuse, skip the payload check, accept any account's approval, build URLs from the request, run the action outside the consume step, accept duplicate JSON keys, ignore the method or query in the hash, accept a policy where `human` is looser than `unknown`, accept a profile the ticket doesn't allow, let a password session add an approver credential, drop the approval page's security headers, and so on). CI runs the suite against each switch and fails if any fault goes undetected.
 
 ## 9. Repository structure
 

@@ -63,11 +63,11 @@ Dates are illustrative (working days); K0 depends on owner time.
 
 **Repo:** Kit + Prototype · **Effort:** about 1 week
 
-1. `spec/HGK-Core.md`: CORE-1 to CORE-16 and the gated response, in RFC 2119 language. → verify: each requirement has a rationale, a prototype source and a planned test.
-2. `spec/HGK-Approver.md`: APR-1 to APR-8; WebAuthn profile complete; OIDC step-up and CIBA marked **Draft**. → verify: the WebAuthn profile matches what the prototype does.
-3. `spec/HGK-Policy.md` with the AuthZEN mapping; `spec/HGK-Actor.md`, `spec/HGK-Audit.md`, `spec/HGK-Rollout.md`. → verify: owner review.
+1. `spec/HGK-Core.md`: CORE-1 to CORE-17 and the gated response, in RFC 2119 language. → verify: each requirement has a rationale, a source (prototype control or security-review finding) and a planned test.
+2. `spec/HGK-Approver.md`: APR-1 to APR-11; WebAuthn profile complete; OIDC step-up and CIBA marked **Draft**. → verify: the WebAuthn profile matches what the prototype does, and each gap against APR-9 to APR-11 is logged for K4.
+3. `spec/HGK-Policy.md` with POL-1 and the AuthZEN mapping; `spec/HGK-Actor.md`, `spec/HGK-Audit.md`, `spec/HGK-Rollout.md`. → verify: owner review.
 4. `schemas/`: JSON Schemas for the gated response, `denied`, `rate_limited`, `ticket_invalid`, policy and audit record; OpenAPI 3.1 for the status endpoint, approval endpoints and gated-action responses. → verify: schemas validate the prototype's real responses (captured in its test environment, not committed if they carry run data).
-5. `spec/index.md`: requirement ID index tracing each ID to a prototype control and a conformance test. → verify: no ID without a source and a test.
+5. `spec/index.md`: requirement ID index tracing each ID to a prototype control or security-review finding, and to a conformance test. → verify: no ID without a source and a test.
 6. Run the prototype's `canonicalJson` against the RFC 8785 test vectors; log each difference as a decision. A fix in the prototype gets its own pull request and test. → verify: the check passes, or every difference is decided.
 7. Confirm the retry header name (`HITL-Ticket`, with `X-HITL-Ticket` accepted). → verify: decision logged.
 

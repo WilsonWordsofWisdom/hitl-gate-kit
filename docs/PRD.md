@@ -79,11 +79,11 @@ Analytics follow the HEART and north-star approach once v0.1 is released.
 
 | Level | Requires | Typical use |
 |---|---|---|
-| **Level 1** | All of HGK-Core, plus one approver profile meeting APR-1 to APR-5 | Minimum for production |
+| **Level 1** | All of HGK-Core and POL-1, plus one approver profile meeting APR-1 to APR-5 and APR-9 to APR-11 | Minimum for production |
 | **Level 2** | Level 1, plus HGK-Audit, CORE-15 (rate limits), CORE-16 (observe controls) and APR-6 | Recommended |
 | **Level 3** | Level 2, plus the MCP profile and, where relevant, protocol identity checks (Web Bot Auth strict, Poppy) | Systems open to agent protocols |
 
-The requirement IDs (CORE-*, APR-*) are listed in [architecture.md](architecture.md) section 4 and become normative in the specification (K2).
+The requirement IDs (CORE-*, POL-*, APR-*) are listed in [architecture.md](architecture.md) section 4 and become normative in the specification (K2).
 
 ## 7. Non-goals
 
